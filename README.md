@@ -2,6 +2,8 @@
 
 Öğrenciler ve genç profesyoneller için hackathon, yarışma, staj, etkinlik ve bootcamp fırsatlarını takip eden akıllı platform.
 
+https://suedakurnaz.github.io/Firsat-Akisi/
+
 ## ✨ Özellikler
 
 - **Akıllı Eşleştirme**: Profilinize göre her fırsat için uyum yüzdesi hesaplanır
