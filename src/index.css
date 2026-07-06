@@ -1,0 +1,128 @@
+/* ═══════════ Global Stiller ═══════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: #3B5BDB22;
+}
+
+/* ═══════════ Animasyonlar ═══════════ */
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: scale(.96) translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .45; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes floaty {
+  0%, 100% { transform: translateY(0) rotate(-8deg); }
+  50% { transform: translateY(-6px) rotate(-4deg); }
+}
+
+@keyframes detailIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ═══════════ Utility Sınıfları ═══════════ */
+
+.card-hover {
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(23, 26, 33, .1);
+  border-color: #d5d5cc !important;
+}
+
+.press {
+  transition: transform .1s ease, opacity .15s ease;
+}
+
+.press:active {
+  transform: scale(.96);
+}
+
+.press:hover {
+  opacity: .92;
+}
+
+/* ═══════════ Form Elemanları ═══════════ */
+
+button {
+  font-family: 'Inter', sans-serif;
+}
+
+input, textarea {
+  font-family: 'Inter', sans-serif;
+}
+
+input:focus, textarea:focus {
+  border-color: #3B5BDB !important;
+  box-shadow: 0 0 0 3px #3B5BDB1A;
+}
+
+/* ═══════════ Erişilebilirlik ═══════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+/* ═══════════ Responsive ═══════════ */
+
+@media (max-width: 760px) {
+  .cal-grid-wrap {
+    grid-template-columns: 1fr !important;
+  }
+  .hide-mobile {
+    display: none !important;
+  }
+  .detail-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .links-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+

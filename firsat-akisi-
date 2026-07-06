@@ -1,0 +1,1044 @@
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import mammoth from "mammoth";
+
+/* ═══════════ Tasarım tokenları ═══════════ */
+const T = {
+  paper: "#F6F6F2", card: "#FFFFFF", ink: "#171A21", mut: "#6B7080",
+  line: "#E7E7E0", blue: "#3B5BDB", blueSoft: "#EDF0FC",
+  teal: "#0CA678", tealSoft: "#E6F7F1", amber: "#E8930C", amberSoft: "#FDF3E3",
+  red: "#E03131", redSoft: "#FDECEC", violet: "#9C36B5",
+  disp: "'Space Grotesk', sans-serif", body: "'Inter', sans-serif",
+};
+
+/* Tür → banner görseli (gradyan + ikon) */
+const TYPE_ART = {
+  Hackathon: { g: "linear-gradient(135deg,#4338CA,#7C3AED)", icon: "⌨" },
+  Yarışma:   { g: "linear-gradient(135deg,#0E7490,#0CA678)", icon: "🏆" },
+  Staj:      { g: "linear-gradient(135deg,#B45309,#E8930C)", icon: "💼" },
+  Etkinlik:  { g: "linear-gradient(135deg,#BE185D,#E03131)", icon: "🎤" },
+  Bootcamp:  { g: "linear-gradient(135deg,#1D4ED8,#3B5BDB)", icon: "🚀" },
+  Program:   { g: "linear-gradient(135deg,#6D28D9,#9C36B5)", icon: "🎯" },
+};
+
+/* ═══════════ Global stil + fontlar ═══════════ */
+function GlobalStyle() {
+  useEffect(() => {
+    const l = document.createElement("link");
+    l.rel = "stylesheet";
+    l.href = "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap";
+    document.head.appendChild(l);
+    const s = document.createElement("style");
+    s.textContent = `
+      * { -webkit-tap-highlight-color: transparent; }
+      body { margin: 0; }
+      ::selection { background: #3B5BDB22; }
+      @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes popIn { from { opacity: 0; transform: scale(.96) translateY(8px); } to { opacity: 1; transform: none; } }
+      @keyframes slideIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+      @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes floaty { 0%,100% { transform: translateY(0) rotate(-8deg); } 50% { transform: translateY(-6px) rotate(-4deg); } }
+      .card-hover { transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+      .card-hover:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(23,26,33,.1); border-color: #d5d5cc !important; }
+      .press { transition: transform .1s ease, opacity .15s ease; }
+      .press:active { transform: scale(.96); }
+      .press:hover { opacity: .92; }
+      button { font-family: 'Inter', sans-serif; }
+      input, textarea { font-family: 'Inter', sans-serif; }
+      input:focus, textarea:focus { border-color: #3B5BDB !important; box-shadow: 0 0 0 3px #3B5BDB1A; }
+      @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+      @media (max-width: 760px) {
+        .cal-grid-wrap { grid-template-columns: 1fr !important; }
+        .hide-mobile { display: none !important; }
+      }
+    `;
+    document.head.appendChild(s);
+  }, []);
+  return null;
+}
+
+/* ═══════════ Yardımcılar ═══════════ */
+const TODAY = new Date("2026-07-04T09:00:00");
+const fmtTR = (iso) => new Date(iso + "T00:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long" });
+const daysLeft = (iso) => Math.ceil((new Date(iso + "T23:59:00") - TODAY) / 86400000);
+const timeAgo = (m) => (m < 60 ? `${m} dk önce` : m < 1440 ? `${Math.floor(m / 60)} sa önce` : `${Math.floor(m / 1440)} gün önce`);
+const uid = () => Date.now() + Math.floor(Math.random() * 1e4);
+const trLower = (s) => s.toLocaleLowerCase("tr-TR");
+
+/* ═══════════ Başlangıç verisi ═══════════ */
+const SEED_SOURCES = [
+  { id: 1, name: "Coderspace", url: "coderspace.io", color: "#3B5BDB" },
+  { id: 2, name: "Youthall", url: "youthall.com", color: "#0CA678" },
+  { id: 3, name: "Kariyer.net", url: "kariyer.net/etkinlik", color: "#E8930C" },
+];
+
+const SEED_ITEMS = [
+  { id: 1, src: 1, type: "Hackathon", title: "FinTech Hackathon 2026", desc: "48 saatlik finans teknolojileri hackathonu. React, Node.js ve API geliştirme üzerine takım yarışması. Ödül havuzu 250.000₺.", tags: ["react", "javascript", "api", "fintech", "yazılım", "takım çalışması", "hackathon"], date: "2026-07-18", end: "2026-07-19", deadline: "2026-07-12", mins: 12, online: false, city: "İstanbul" },
+  { id: 2, src: 2, type: "Staj", title: "Yaz Dönemi UX Tasarım Stajı", desc: "Ürün ekibi içinde kullanıcı araştırması ve arayüz tasarımı odaklı 8 haftalık staj programı. Figma deneyimi beklenir.", tags: ["ux", "tasarım", "figma", "kullanıcı araştırması", "arayüz"], date: "2026-08-03", end: "2026-09-25", deadline: "2026-07-20", mins: 47, online: false, city: "Ankara" },
+  { id: 3, src: 1, type: "Yarışma", title: "Veri Bilimi Tahmin Yarışması", desc: "Türkiye e-ticaret verisiyle talep tahmini modeli geliştirme yarışması. Python, pandas ve makine öğrenmesi gerektirir.", tags: ["python", "veri bilimi", "makine öğrenmesi", "pandas", "veri analizi"], date: "2026-07-25", end: "2026-08-08", deadline: "2026-07-22", mins: 180, online: true },
+  { id: 4, src: 3, type: "Etkinlik", title: "Genç Yetenek Kariyer Zirvesi", desc: "Teknoloji şirketleriyle birebir görüşme, CV atölyesi ve networking oturumları. Tüm bölümlere açık, katılım ücretsiz.", tags: ["kariyer", "networking", "iletişim"], date: "2026-07-09", end: null, deadline: "2026-07-08", mins: 320, online: false, city: "İstanbul" },
+  { id: 5, src: 2, type: "Program", title: "Girişimcilik Hızlandırma Programı", desc: "Erken aşama fikirler için 6 haftalık mentorluk ve ön kuluçka programı. İş modeli, sunum ve pazarlama eğitimleri.", tags: ["girişimcilik", "pazarlama", "sunum", "iş geliştirme", "proje yönetimi", "startup"], date: "2026-08-10", end: "2026-09-21", deadline: "2026-07-30", mins: 520, online: true },
+  { id: 6, src: 1, type: "Bootcamp", title: "Frontend Bootcamp — React & TypeScript", desc: "6 haftalık yoğun frontend eğitimi. Başarılı katılımcılara partner şirketlerde işe alım süreci önceliği.", tags: ["react", "typescript", "frontend", "javascript", "css", "arayüz"], date: "2026-07-27", end: "2026-09-07", deadline: "2026-07-15", mins: 95, online: true },
+  { id: 7, src: 3, type: "Yarışma", title: "Mobil Uygulama Fikir Maratonu", desc: "Sosyal fayda odaklı mobil uygulama fikirleri yarışması. Prototip zorunlu değil; sunum ve fikir değerlendirilir.", tags: ["mobil", "tasarım", "sunum", "sosyal fayda", "girişimcilik", "mvp"], date: "2026-08-15", end: "2026-08-16", deadline: "2026-08-01", mins: 1600, online: true },
+  { id: 8, src: 2, type: "Etkinlik", title: "Yapay Zekâ Günleri", desc: "LLM'ler, üretken yapay zekâ ve sektör uygulamaları üzerine iki günlük konferans. Öğrencilere ücretsiz.", tags: ["yapay zekâ", "llm", "makine öğrenmesi", "python", "yazılım"], date: "2026-07-16", end: "2026-07-17", deadline: "2026-07-14", mins: 2900, online: false, city: "İzmir" },
+  { id: 9, src: 1, type: "Hackathon", title: "AI Agent Hackathonu", desc: "Otonom ajan sistemleri ve LLM API entegrasyonlarıyla gerçek problem çözen ürünler geliştirme yarışması. RAG ve prompt mühendisliği bilgisi avantaj.", tags: ["yapay zekâ", "llm", "agent", "rag", "prompt mühendisliği", "api", "python"], date: "2026-07-31", end: "2026-08-02", deadline: "2026-07-19", mins: 30, online: true },
+];
+
+const DISCOVER_POOL = [
+  { type: "Hackathon", title: "Sürdürülebilirlik Hackathonu", desc: "İklim ve enerji verimliliği temalı 36 saatlik hackathon. Jüri önünde demo sunumu yapılır.", tags: ["yazılım", "sürdürülebilirlik", "takım çalışması", "sunum", "hackathon"], date: "2026-08-08", end: "2026-08-09", deadline: "2026-07-28", online: false, city: "İstanbul" },
+  { type: "Staj", title: "Backend Geliştirme Stajı", desc: "Mikroservis mimarisi üzerinde çalışan ekipte Node.js ve SQL odaklı uzun dönem staj.", tags: ["node", "sql", "backend", "javascript", "yazılım", "api"], date: "2026-09-01", end: "2026-12-18", deadline: "2026-08-05", online: false, city: "Ankara" },
+  { type: "Yarışma", title: "Siber Güvenlik CTF Turnuvası", desc: "Bireysel veya takım halinde katılabileceğiniz bayrak yakalama yarışması. Başlangıç seviyesine uygun kategoriler mevcut.", tags: ["siber güvenlik", "yazılım", "linux", "python"], date: "2026-08-20", end: "2026-08-21", deadline: "2026-08-12", online: true },
+  { type: "Etkinlik", title: "Ürün Yönetimi Buluşması", desc: "Ürün yöneticileriyle vaka çalışması ve soru-cevap oturumu. Kontenjan sınırlı.", tags: ["ürün yönetimi", "kariyer", "iletişim", "iş geliştirme", "proje yönetimi"], date: "2026-07-23", end: null, deadline: "2026-07-21", online: true },
+];
+
+const DEFAULT_PROFILE = { name: "", title: "", about: "", edu: "", cvName: null, skills: [], interests: [] };
+
+/* ═══════════ Uyum skoru ═══════════ */
+function matchScore(item, profile) {
+  const mine = [...profile.skills, ...profile.interests,
+    ...profile.about.split(/[\s,.;!?()·|]+/)]
+    .map((s) => trLower(s).trim()).filter((s) => s.length > 2);
+  if (mine.length === 0) return null;
+  let hit = 0;
+  item.tags.forEach((t) => {
+    const tl = trLower(t);
+    if (mine.some((m) => m === tl || tl.includes(m) || m.includes(tl))) hit++;
+  });
+  if (hit === 0) return Math.max(4, Math.round(8 - item.tags.length));
+  return Math.min(98, Math.round((hit / item.tags.length) * 86 + 12));
+}
+const pctColor = (p) => (p == null ? T.mut : p >= 70 ? T.teal : p >= 40 ? T.amber : T.red);
+
+/* ═══════════ Kalıcı kayıt ═══════════ */
+const STORE_KEY = "firsat-akisi-state-v1";
+async function loadState() {
+  try { const r = await window.storage.get(STORE_KEY); return r ? JSON.parse(r.value) : null; } catch { return null; }
+}
+async function saveState(state) {
+  try { await window.storage.set(STORE_KEY, JSON.stringify(state)); } catch {}
+}
+
+/* ═══════════ CV TARAMA SİSTEMİ ═══════════ */
+let pdfjsPromise = null;
+function loadPdfJs() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (pdfjsPromise) return pdfjsPromise;
+  pdfjsPromise = new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+    s.onload = () => {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      res(window.pdfjsLib);
+    };
+    s.onerror = () => rej(new Error("pdf.js yüklenemedi"));
+    document.head.appendChild(s);
+  });
+  return pdfjsPromise;
+}
+
+async function extractFileText(file) {
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".pdf")) {
+    const pdfjs = await loadPdfJs();
+    const buf = await file.arrayBuffer();
+    const doc = await pdfjs.getDocument({ data: buf }).promise;
+    let out = "";
+    for (let p = 1; p <= doc.numPages; p++) {
+      const page = await doc.getPage(p);
+      const tc = await page.getTextContent();
+      out += tc.items.map((i) => i.str).join(" ") + "\n";
+    }
+    return out;
+  }
+  if (name.endsWith(".docx")) {
+    const buf = await file.arrayBuffer();
+    const r = await mammoth.extractRawText({ arrayBuffer: buf });
+    return r.value;
+  }
+  return await file.text();
+}
+
+async function analyzeWithAI(cvText) {
+  const prompt = `Aşağıda bir CV'nin ham metni var. Bu CV'yi detaylı analiz et ve SADECE geçerli bir JSON nesnesi döndür. Markdown, açıklama, kod bloğu KULLANMA — yalnızca ham JSON.
+
+JSON şeması:
+{
+  "name": "kişinin tam adı",
+  "title": "tek satırlık profesyonel unvan/tanım",
+  "about": "CV'den çıkan 2-3 cümlelik özet (Türkçe, birinci ağızdan)",
+  "edu": "üniversite — bölüm (yıllar)",
+  "skills": ["teknik yetenekler; kısa etiketler halinde, Türkçe küçük harf tercih et; teknoloji adları orijinal kalsın (React, Python gibi). Programlama dilleri, framework'ler, araçlar, metodolojiler, AI/veri yetkinlikleri dahil. 15-30 adet, detaylı ol"],
+  "interests": ["CV'deki deneyim, proje, sertifika ve topluluklardan ÇIKARIM yaparak ilgi alanları: örn. yapay zekâ, girişimcilik, hackathon, proje yönetimi, topluluk liderliği, ux tasarım... 6-12 adet"]
+}
+
+Kurallar:
+- skills listesi geniş ve somut olsun: "LLM API entegrasyonu", "rag", "prompt mühendisliği", "web scraping" gibi çok kelimeli yetkinlikler ayrı etiket olabilir.
+- interests, kişinin nelere BAŞVURMAK isteyeceğini yansıtsın (yarışma/etkinlik eşleştirmesi için kullanılacak).
+- Bilgi yoksa alanı boş string veya boş dizi yap. Uydurma.
+
+CV METNİ:
+${cvText.slice(0, 14000)}`;
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1000,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  if (!response.ok) throw new Error("API hatası");
+  const data = await response.json();
+  const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
+  const clean = text.replace(/```json|```/g, "").trim();
+  const start = clean.indexOf("{"), end = clean.lastIndexOf("}");
+  return JSON.parse(clean.slice(start, end + 1));
+}
+
+const SKILL_DICT = [
+  ["python", "Python"], ["javascript", "JavaScript"], ["typescript", "TypeScript"], ["react", "React"],
+  ["node", "Node.js"], ["java", "Java"], ["c++", "C++"], ["sql", "SQL"], ["html", "HTML"], ["css", "CSS"],
+  ["figma", "Figma"], ["git", "Git"], ["github", "GitHub"], ["linux", "Linux"], ["docker", "Docker"],
+  ["llm", "LLM entegrasyonu"], ["rag", "RAG"], ["agent", "agent sistemleri"], ["embedding", "embedding"],
+  ["prompt", "prompt mühendisliği"], ["scraping", "web scraping"], ["api", "API entegrasyonu"],
+  ["makine öğren", "makine öğrenmesi"], ["yapay zeka", "yapay zekâ"], ["yapay zekâ", "yapay zekâ"],
+  ["veri bilimi", "veri bilimi"], ["veri analiz", "veri analizi"], ["ux", "UX tasarım"], ["ui", "UI tasarım"],
+  ["mvp", "MVP geliştirme"], ["prototip", "hızlı prototipleme"], ["mobil", "mobil geliştirme"],
+  ["android", "Android"], ["ios", "iOS"], ["verilog", "Verilog"], ["netlify", "Netlify"], ["cursor", "Cursor"],
+  ["proje yönet", "proje yönetimi"], ["vibe coding", "vibe coding"], ["excel", "Excel"],
+];
+const INTEREST_DICT = [
+  ["hackathon", "hackathon"], ["yarışma", "yarışmalar"], ["girişim", "girişimcilik"], ["startup", "startup"],
+  ["yapay zek", "yapay zekâ"], ["veri", "veri bilimi"], ["tasarım", "tasarım"], ["topluluk", "topluluk liderliği"],
+  ["liderlik", "liderlik"], ["teknofest", "teknofest"], ["robotik", "robotik"], ["sürdürülebilir", "sürdürülebilirlik"],
+  ["mentor", "mentorluk"], ["sertifika", "sürekli öğrenme"], ["staj", "staj programları"], ["ihracat", "iş geliştirme"],
+];
+function localExtract(text) {
+  const t = trLower(text);
+  const pick = (dict) => { const out = []; dict.forEach(([k, v]) => { if (t.includes(k) && !out.includes(v)) out.push(v); }); return out; };
+  const nameGuess = text.trim().split("\n")[0]?.trim().split(/\s{2,}|·|\|/)[0]?.slice(0, 40) || "";
+  return {
+    name: /^[A-ZÇĞİÖŞÜ][a-zçğıöşü]+(\s[A-ZÇĞİÖŞÜ][A-Za-zçğıöşüÇĞİÖŞÜ]+)+$/.test(nameGuess) || nameGuess === nameGuess.toUpperCase() ? nameGuess : "",
+    title: "", about: "", edu: "",
+    skills: pick(SKILL_DICT), interests: pick(INTEREST_DICT),
+  };
+}
+
+async function scanCV(file, onStage) {
+  onStage("Dosya okunuyor…");
+  const text = await extractFileText(file);
+  if (!text || text.trim().length < 40) throw new Error("Dosyadan metin çıkarılamadı. Taranmış (görüntü) PDF olabilir.");
+  onStage("Yapay zekâ CV'nizi analiz ediyor…");
+  try {
+    const ai = await analyzeWithAI(text);
+    return { ...ai, _method: "ai" };
+  } catch {
+    onStage("Yerel analiz yapılıyor…");
+    return { ...localExtract(text), _method: "local" };
+  }
+}
+
+/* ═══════════ Uyum halkası ═══════════ */
+function Ring({ pct, size = 54, bg = T.line }) {
+  const col = pctColor(pct);
+  const r = size / 2 - 6, c = 2 * Math.PI * r;
+  const off = pct == null ? c : c - (c * pct) / 100;
+  return (
+    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }} title="Profilinizle uyum">
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={bg} strokeWidth="4.5" />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={col} strokeWidth="4.5"
+          strokeDasharray={c} strokeDashoffset={off} strokeLinecap="round"
+          style={{ transition: "stroke-dashoffset .7s cubic-bezier(.22,1,.36,1), stroke .3s" }} />
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.disp, fontWeight: 700, fontSize: size * 0.23, color: col }}>
+        {pct == null ? "—" : `%${pct}`}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════ Toast ═══════════ */
+function Toasts({ toasts }) {
+  return (
+    <div style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", zIndex: 100, display: "flex", flexDirection: "column", gap: 8, alignItems: "center", pointerEvents: "none", width: "min(92vw, 440px)" }}>
+      {toasts.map((t) => (
+        <div key={t.id} style={{ background: T.ink, color: "#fff", padding: "11px 18px", borderRadius: 12, fontSize: 13.5, fontWeight: 500, boxShadow: "0 8px 24px rgba(0,0,0,.25)", animation: "popIn .25s ease", display: "flex", gap: 8, alignItems: "center", maxWidth: "100%" }}>
+          <span>{t.icon}</span><span>{t.msg}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ═══════════ ANA UYGULAMA ═══════════ */
+export default function App() {
+  const [ready, setReady] = useState(false);
+  const [page, setPage] = useState("akis");
+  const [sources, setSources] = useState(SEED_SOURCES);
+  const [items, setItems] = useState(SEED_ITEMS);
+  const [saved, setSaved] = useState([]);
+  const [profile, setProfile] = useState(DEFAULT_PROFILE);
+  const [seen, setSeen] = useState([]);
+  const [toasts, setToasts] = useState([]);
+  const [showAdd, setShowAdd] = useState(false);
+  const [showLinks, setShowLinks] = useState(false);
+  const [detail, setDetail] = useState(null);
+  const firstSave = useRef(true);
+
+  useEffect(() => {
+    loadState().then((s) => {
+      if (s) {
+        setSources(s.sources ?? SEED_SOURCES);
+        const base = s.items ?? [];
+        const merged = [...base];
+        SEED_ITEMS.forEach((si) => { if (!merged.some((m) => m.title === si.title)) merged.push(si); });
+        setItems(merged.length ? merged : SEED_ITEMS);
+        setSaved(s.saved ?? []);
+        setProfile({ ...DEFAULT_PROFILE, ...(s.profile ?? {}) });
+        setSeen(s.seen ?? []);
+      }
+      setReady(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    if (firstSave.current) { firstSave.current = false; return; }
+    const t = setTimeout(() => saveState({ sources, items, saved, profile, seen }), 400);
+    return () => clearTimeout(t);
+  }, [sources, items, saved, profile, seen, ready]);
+
+  const toast = useCallback((msg, icon = "✓") => {
+    const id = uid();
+    setToasts((p) => [...p, { id, msg, icon }]);
+    setTimeout(() => setToasts((p) => p.filter((x) => x.id !== id)), 3200);
+  }, []);
+
+  const scored = useMemo(() => items.map((it) => ({ ...it, pct: matchScore(it, profile) })), [items, profile]);
+  const newCount = items.filter((i) => !seen.includes(i.id)).length;
+
+  const toggleSave = (id) => {
+    const on = saved.includes(id);
+    setSaved(on ? saved.filter((x) => x !== id) : [...saved, id]);
+    toast(on ? "Takvimden çıkarıldı" : "Takvime eklendi", on ? "🗑" : "📌");
+  };
+
+  const addSource = (url, done) => {
+    const clean = url.replace(/^https?:\/\//, "").replace(/^www\./, "");
+    const name = clean.split(/[/.]/)[0];
+    const cap = name.charAt(0).toUpperCase() + name.slice(1);
+    const color = ["#3B5BDB", "#0CA678", "#E8930C", "#9C36B5", "#E03131", "#0E7490", "#7C3AED"][sources.length % 7];
+    const src = { id: uid(), name: cap, url: clean, color };
+    setTimeout(() => {
+      const found = DISCOVER_POOL
+        .filter((p) => !items.some((i) => i.title === p.title))
+        .slice(0, 2)
+        .map((p) => ({ ...p, id: uid(), src: src.id, mins: Math.floor(Math.random() * 20) + 2 }));
+      setSources((s) => [...s, src]);
+      setItems((it) => [...found, ...it]);
+      done();
+      toast(found.length ? `${cap} takibe alındı — ${found.length} yeni fırsat bulundu` : `${cap} takibe alındı`, "🔗");
+    }, 1400);
+  };
+
+  const removeSource = (id) => {
+    setSources(sources.filter((s) => s.id !== id));
+    setItems(items.filter((i) => i.src !== id));
+    toast("Kaynak takipten çıkarıldı", "🗑");
+  };
+
+  if (!ready) return (
+    <div style={{ minHeight: "100vh", background: T.paper, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <GlobalStyle />
+      <div style={{ width: 32, height: 32, border: `3px solid ${T.line}`, borderTopColor: T.blue, borderRadius: "50%", animation: "spin .8s linear infinite" }} />
+    </div>
+  );
+
+  const navBtn = (k, l, badge) => (
+    <button key={k} onClick={() => setPage(k)} className="press" style={{
+      position: "relative", padding: "7px 15px", borderRadius: 20, fontSize: 13.5, fontWeight: 600, cursor: "pointer",
+      border: "none", background: page === k ? T.ink : "transparent", color: page === k ? "#fff" : T.ink, transition: "background .2s, color .2s",
+    }}>
+      {l}
+      {badge > 0 && <span style={{ position: "absolute", top: -3, right: -3, minWidth: 16, height: 16, borderRadius: 9, background: T.red, color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{badge}</span>}
+    </button>
+  );
+
+  return (
+    <div style={{ minHeight: "100vh", background: T.paper, fontFamily: T.body, color: T.ink }}>
+      <GlobalStyle />
+      <header style={{ position: "sticky", top: 0, zIndex: 20, background: "rgba(246,246,242,.92)", backdropFilter: "blur(10px)", borderBottom: `1px solid ${T.line}` }}>
+        <div style={{ maxWidth: 1120, margin: "0 auto", padding: "13px 20px", display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{ fontFamily: T.disp, fontWeight: 700, fontSize: 20, letterSpacing: "-0.5px", whiteSpace: "nowrap" }}>
+            fırsat<span style={{ color: T.blue }}>/akışı</span>
+          </div>
+          <nav style={{ display: "flex", gap: 4, flex: 1 }}>
+            {navBtn("akis", "Akış", newCount)}
+            {navBtn("takvim", "Takvim", 0)}
+            {navBtn("profil", "Profil", 0)}
+          </nav>
+          {page === "akis" && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setShowLinks(true)} className="press" style={{
+                padding: "9px 15px", borderRadius: 10, border: `1px solid ${T.line}`, background: T.card,
+                color: T.ink, fontFamily: T.disp, fontWeight: 600, fontSize: 13.5, cursor: "pointer",
+                display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap",
+              }}>
+                🔗 Linklerim
+                <span style={{ background: T.blueSoft, color: T.blue, borderRadius: 10, fontSize: 11.5, fontWeight: 700, padding: "1px 8px" }}>{sources.length}</span>
+              </button>
+              <button onClick={() => setShowAdd(true)} className="press" style={{ padding: "9px 18px", borderRadius: 10, border: "none", background: T.blue, color: "#fff", fontFamily: T.disp, fontWeight: 600, fontSize: 14, cursor: "pointer", boxShadow: "0 2px 10px rgba(59,91,219,.35)", whiteSpace: "nowrap" }}>+ Link ekle</button>
+            </div>
+          )}
+        </div>
+      </header>
+
+      <main key={page} style={{ maxWidth: 1120, margin: "0 auto", padding: "24px 20px 70px", animation: "fadeUp .3s ease" }}>
+        {page === "akis" && (
+          <Feed scored={scored} sources={sources} saved={saved} toggleSave={toggleSave}
+            seen={seen} setSeen={setSeen} profile={profile} setDetail={setDetail}
+            goProfile={() => setPage("profil")} />
+        )}
+        {page === "takvim" && (
+          <CalendarPage items={scored.filter((i) => saved.includes(i.id))} sources={sources} setDetail={setDetail} />
+        )}
+        {page === "profil" && <ProfilePage profile={profile} setProfile={setProfile} toast={toast} />}
+      </main>
+
+      {showLinks && (
+        <LinksModal sources={sources} items={items} removeSource={removeSource}
+          onClose={() => setShowLinks(false)}
+          onAddNew={() => { setShowLinks(false); setShowAdd(true); }} />
+      )}
+      {showAdd && <AddModal onClose={() => setShowAdd(false)} onAdd={addSource} />}
+      {detail && (
+        <DetailModal item={scored.find((i) => i.id === detail)} src={sources.find((s) => s.id === scored.find((i) => i.id === detail)?.src)}
+          saved={saved.includes(detail)} toggleSave={() => toggleSave(detail)} onClose={() => setDetail(null)} profile={profile} />
+      )}
+      <Toasts toasts={toasts} />
+    </div>
+  );
+}
+
+/* ═══════════ LİNKLERİM MODALI ═══════════ */
+function LinksModal({ sources, items, removeSource, onClose, onAddNew }) {
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(23,26,33,.5)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, animation: "fadeIn .2s" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: T.card, borderRadius: 18, padding: 26, width: "100%", maxWidth: 460, maxHeight: "80vh", display: "flex", flexDirection: "column", animation: "popIn .28s cubic-bezier(.22,1,.36,1)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+          <h3 style={{ fontFamily: T.disp, fontSize: 20, margin: 0 }}>Takip ettiğim linkler</h3>
+          <button onClick={onClose} className="press" style={{ border: "none", background: T.paper, borderRadius: 8, width: 30, height: 30, cursor: "pointer", fontSize: 15 }}>✕</button>
+        </div>
+        <p style={{ color: T.mut, fontSize: 13, margin: "0 0 16px" }}>
+          Bu sitelerdeki yeni fırsatlar otomatik olarak akışınıza düşer.
+        </p>
+        <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+          {sources.map((s, i) => {
+            const count = items.filter((it) => it.src === s.id).length;
+            return (
+              <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: T.paper, border: `1px solid ${T.line}`, borderRadius: 12, animation: `fadeUp .25s ease ${i * 0.04}s both` }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: `${s.color}18`, color: s.color, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.disp, fontWeight: 700, fontSize: 16, flexShrink: 0 }}>
+                  {s.name[0]}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, fontFamily: T.disp }}>{s.name}</div>
+                  <div style={{ fontSize: 11.5, color: T.mut, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.url}</div>
+                </div>
+                <span style={{ fontSize: 11.5, color: T.mut, fontWeight: 600, whiteSpace: "nowrap" }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: s.color, display: "inline-block", marginRight: 5, animation: "pulse 2.5s infinite" }} />
+                  {count} fırsat
+                </span>
+                <button onClick={() => removeSource(s.id)} title="Takibi bırak" className="press"
+                  style={{ border: `1px solid ${T.line}`, background: "#fff", borderRadius: 8, width: 30, height: 30, cursor: "pointer", color: T.mut, fontSize: 14, flexShrink: 0 }}>×</button>
+              </div>
+            );
+          })}
+          {sources.length === 0 && (
+            <div style={{ textAlign: "center", padding: 30, color: T.mut, fontSize: 13 }}>Henüz takip edilen link yok.</div>
+          )}
+        </div>
+        <button onClick={onAddNew} className="press" style={{ padding: "12px", borderRadius: 11, border: `1.5px dashed ${T.blue}66`, background: T.blueSoft, color: T.blue, cursor: "pointer", fontSize: 14, fontWeight: 700, fontFamily: T.disp }}>
+          + Yeni link ekle
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════ AKIŞ ═══════════ */
+function Feed({ scored, sources, saved, toggleSave, seen, setSeen, profile, setDetail, goProfile }) {
+  const [filter, setFilter] = useState("hepsi");
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState("uyum");
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const ids = scored.map((i) => i.id);
+      setSeen((s) => [...new Set([...s, ...ids])]);
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [scored, setSeen]);
+
+  const types = ["hepsi", "yuksek", "Hackathon", "Yarışma", "Staj", "Etkinlik", "Bootcamp", "Program"];
+  const label = { hepsi: "Tümü", yuksek: "★ %70+ uyum" };
+  const emptyProfile = profile.skills.length === 0 && profile.interests.length === 0 && !profile.about.trim();
+
+  let feed = scored.filter((i) =>
+    (filter === "hepsi" || (filter === "yuksek" ? (i.pct ?? 0) >= 70 : i.type === filter)) &&
+    (q.trim() === "" || trLower(i.title + i.desc + i.tags.join(" ")).includes(trLower(q)))
+  );
+  feed = [...feed].sort((a, b) =>
+    sort === "uyum" ? (b.pct ?? -1) - (a.pct ?? -1)
+    : sort === "yeni" ? a.mins - b.mins
+    : daysLeft(a.deadline) - daysLeft(b.deadline)
+  );
+
+  const high = scored.filter((i) => (i.pct ?? 0) >= 70).length;
+  const urgent = scored.filter((i) => { const d = daysLeft(i.deadline); return d >= 0 && d <= 7; }).length;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+        {[[scored.length, "aktif fırsat", T.blue], [high, "size %70+ uygun", T.teal], [urgent, "son 7 günde kapanıyor", T.red], [sources.length, "takip edilen site", T.violet]].map(([n, l, c], i) => (
+          <div key={i} style={{ background: T.card, border: `1px solid ${T.line}`, borderRadius: 12, padding: "12px 16px", animation: `fadeUp .3s ease ${i * 0.05}s both` }}>
+            <div style={{ fontFamily: T.disp, fontSize: 24, fontWeight: 700, color: c }}>{n}</div>
+            <div style={{ fontSize: 12, color: T.mut }}>{l}</div>
+          </div>
+        ))}
+      </div>
+
+      {emptyProfile && (
+        <button onClick={goProfile} className="press" style={{ textAlign: "left", background: T.blueSoft, border: `1px solid ${T.blue}33`, borderRadius: 12, padding: "13px 16px", fontSize: 13.5, cursor: "pointer", color: T.ink }}>
+          💡 Uyum yüzdelerini görmek için <b style={{ color: T.blue }}>profilinizi doldurun veya CV'nizi yükleyin</b> — her fırsat size göre anında puanlanır. →
+        </button>
+      )}
+
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔍  Fırsat ara…"
+          style={{ flex: 1, minWidth: 200, padding: "10px 14px", borderRadius: 10, border: `1px solid ${T.line}`, fontSize: 13.5, outline: "none", background: T.card, transition: "border-color .2s, box-shadow .2s" }} />
+        <select value={sort} onChange={(e) => setSort(e.target.value)}
+          style={{ padding: "10px 12px", borderRadius: 10, border: `1px solid ${T.line}`, fontSize: 13, background: T.card, cursor: "pointer", fontFamily: T.body }}>
+          <option value="uyum">Uyuma göre</option>
+          <option value="yeni">En yeni</option>
+          <option value="son">Son başvuruya göre</option>
+        </select>
+      </div>
+
+      <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+        {types.map((t) => (
+          <button key={t} onClick={() => setFilter(t)} className="press" style={{
+            padding: "6px 13px", borderRadius: 18, fontSize: 12.5, cursor: "pointer", fontWeight: 500,
+            border: `1px solid ${filter === t ? T.blue : T.line}`, background: filter === t ? T.blueSoft : "transparent",
+            color: filter === t ? T.blue : T.ink, transition: "all .15s",
+          }}>{label[t] || t}</button>
+        ))}
+      </div>
+
+      {/* ── Coderspace tarzı kart ızgarası ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 18 }}>
+        {feed.map((it, idx) => (
+          <FeedCard key={it.id} it={it} idx={idx} src={sources.find((s) => s.id === it.src)}
+            isNew={!seen.includes(it.id)} isSaved={saved.includes(it.id)}
+            onSave={() => toggleSave(it.id)} onOpen={() => setDetail(it.id)} />
+        ))}
+      </div>
+      {feed.length === 0 && (
+        <div style={{ textAlign: "center", padding: 50, color: T.mut, animation: "fadeIn .3s" }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>🔎</div>
+          Bu aramaya uyan fırsat yok. Filtreleri temizlemeyi deneyin.
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Görsel banner'lı dikey kart ── */
+function FeedCard({ it, idx, src, isNew, isSaved, onSave, onOpen }) {
+  const dl = daysLeft(it.deadline);
+  const closed = dl < 0;
+  const art = TYPE_ART[it.type] || TYPE_ART.Etkinlik;
+
+  const DateCol = ({ l, v }) => (
+    <div style={{ flex: 1, textAlign: "center" }}>
+      <div style={{ fontSize: 10.5, color: T.mut, fontWeight: 600, marginBottom: 3 }}>{l}</div>
+      <div style={{ fontSize: 13, fontWeight: 700, fontFamily: T.disp }}>{v}</div>
+    </div>
+  );
+
+  return (
+    <article onClick={onOpen} className="card-hover" style={{
+      background: T.card, border: `1px solid ${T.line}`, borderRadius: 16, overflow: "visible",
+      cursor: "pointer", display: "flex", flexDirection: "column",
+      animation: `fadeUp .35s ease ${Math.min(idx * 0.05, 0.4)}s both`,
+    }}>
+      {/* Banner */}
+      <div style={{ position: "relative", height: 118, borderRadius: "15px 15px 0 0", background: art.g, overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 85% 15%, rgba(255,255,255,.28), transparent 45%), radial-gradient(circle at 10% 90%, rgba(0,0,0,.18), transparent 50%)" }} />
+        <div style={{ position: "absolute", right: 16, bottom: 8, fontSize: 52, opacity: .3, animation: "floaty 5s ease-in-out infinite", filter: "grayscale(.2)" }}>{art.icon}</div>
+        <div style={{ position: "absolute", left: 14, top: 12, display: "flex", gap: 6, alignItems: "center" }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", background: "rgba(255,255,255,.22)", backdropFilter: "blur(4px)", padding: "4px 11px", borderRadius: 12, letterSpacing: ".2px" }}>{src?.name}</span>
+          {isNew && <span style={{ fontSize: 10, fontWeight: 700, color: art.g.includes("BE185D") ? "#fff" : "#fff", background: T.red, padding: "3px 9px", borderRadius: 10, letterSpacing: ".5px", animation: "pulse 1.6s infinite" }}>YENİ</span>}
+        </div>
+        <div style={{ position: "absolute", left: 14, bottom: 12, fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.9)" }}>
+          {it.online ? "🌐 Online" : `📍 ${it.city}`} · <span className="hide-mobile">{timeAgo(it.mins)}</span>
+        </div>
+        {/* Kaydet düğmesi */}
+        <button onClick={(e) => { e.stopPropagation(); onSave(); }} title={isSaved ? "Takvimden çıkar" : "Takvime ekle"} className="press" style={{
+          position: "absolute", right: 12, top: 12, width: 32, height: 32, borderRadius: 9, border: "none",
+          background: isSaved ? "#fff" : "rgba(255,255,255,.22)", backdropFilter: "blur(4px)",
+          color: isSaved ? T.teal : "#fff", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center",
+        }}>{isSaved ? "✓" : "📌"}</button>
+      </div>
+
+      {/* Uyum halkası — banner'ın üzerine taşan imza öğe */}
+      <div style={{ position: "relative", height: 0 }}>
+        <div style={{ position: "absolute", right: 14, top: -27, background: "#fff", borderRadius: "50%", padding: 3, boxShadow: "0 4px 14px rgba(23,26,33,.15)" }}>
+          <Ring pct={it.pct} size={50} />
+        </div>
+      </div>
+
+      {/* Gövde */}
+      <div style={{ padding: "16px 18px 0", flex: 1 }}>
+        <span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, color: T.violet, background: "#F4EBFA", padding: "4px 12px", borderRadius: 12, marginBottom: 9 }}>{it.type}</span>
+        <h3 style={{ fontFamily: T.disp, fontSize: 16.5, margin: "0 0 6px", fontWeight: 700, letterSpacing: "-.2px", lineHeight: 1.3, paddingRight: 8 }}>{it.title}</h3>
+        <p style={{ fontSize: 12.5, color: T.mut, margin: "0 0 14px", lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{it.desc}</p>
+        <div style={{ display: "flex", gap: 6, borderTop: `1px solid ${T.line}`, paddingTop: 12 }}>
+          <DateCol l="Son Başvuru" v={fmtTR(it.deadline)} />
+          <div style={{ width: 1, background: T.line }} />
+          <DateCol l="Başlangıç" v={fmtTR(it.date)} />
+          {it.end && <><div style={{ width: 1, background: T.line }} /><DateCol l="Bitiş" v={fmtTR(it.end)} /></>}
+        </div>
+        {!closed && dl <= 7 && (
+          <div style={{ textAlign: "center", fontSize: 11.5, fontWeight: 700, color: dl <= 3 ? T.red : T.amber, marginTop: 8 }}>
+            ⏳ {dl === 0 ? "Bugün son gün!" : `Son başvuruya ${dl} gün`}
+          </div>
+        )}
+      </div>
+
+      {/* CTA */}
+      <div style={{ padding: "14px 18px 18px" }}>
+        <button className="press" onClick={(e) => { e.stopPropagation(); onOpen(); }} style={{
+          width: "100%", padding: "12px", borderRadius: 24, border: "none", cursor: closed ? "default" : "pointer",
+          fontSize: 14, fontWeight: 700, fontFamily: T.disp, letterSpacing: ".2px",
+          background: closed ? "#E9E9E4" : art.g, color: closed ? "#9a9a92" : "#fff",
+          boxShadow: closed ? "none" : "0 4px 14px rgba(23,26,33,.18)",
+        }}>
+          {closed ? "Başvurular Tamamlandı" : "Detaylı Bilgi ›"}
+        </button>
+      </div>
+    </article>
+  );
+}
+
+/* ═══════════ DETAY MODALI ═══════════ */
+function DetailModal({ item, src, saved, toggleSave, onClose, profile }) {
+  if (!item) return null;
+  const mine = [...profile.skills, ...profile.interests].map(trLower);
+  const dl = daysLeft(item.deadline);
+  const art = TYPE_ART[item.type] || TYPE_ART.Etkinlik;
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(23,26,33,.5)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, animation: "fadeIn .2s" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: T.card, borderRadius: 18, width: "100%", maxWidth: 540, maxHeight: "88vh", overflowY: "auto", animation: "popIn .28s cubic-bezier(.22,1,.36,1)" }}>
+        {/* Banner */}
+        <div style={{ position: "relative", height: 110, background: art.g, borderRadius: "18px 18px 0 0", overflow: "hidden" }}>
+          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 85% 15%, rgba(255,255,255,.28), transparent 45%)" }} />
+          <div style={{ position: "absolute", right: 20, bottom: 6, fontSize: 56, opacity: .3 }}>{art.icon}</div>
+          <span style={{ position: "absolute", left: 18, top: 16, fontSize: 11, fontWeight: 700, color: "#fff", background: "rgba(255,255,255,.22)", padding: "4px 11px", borderRadius: 12 }}>{src?.name} · {item.type}</span>
+          <button onClick={onClose} className="press" style={{ position: "absolute", right: 14, top: 14, border: "none", background: "rgba(255,255,255,.25)", color: "#fff", borderRadius: 8, width: 30, height: 30, cursor: "pointer", fontSize: 15 }}>✕</button>
+        </div>
+        <div style={{ padding: "0 26px 26px" }}>
+          <div style={{ display: "flex", gap: 14, alignItems: "flex-end", marginTop: -26 }}>
+            <div style={{ background: "#fff", borderRadius: "50%", padding: 4, boxShadow: "0 4px 14px rgba(23,26,33,.15)" }}>
+              <Ring pct={item.pct} size={62} />
+            </div>
+            <div style={{ paddingBottom: 4, fontSize: 12, color: T.mut, fontWeight: 600 }}>
+              {item.online ? "🌐 Online" : `📍 ${item.city}`}
+            </div>
+          </div>
+          <h2 style={{ fontFamily: T.disp, fontSize: 21, margin: "12px 0 8px", letterSpacing: "-.3px" }}>{item.title}</h2>
+          <p style={{ fontSize: 14, lineHeight: 1.6, color: "#3a3e48", margin: "0 0 16px" }}>{item.desc}</p>
+
+          <div style={{ display: "flex", gap: 6, background: T.paper, borderRadius: 12, padding: "12px 8px", marginBottom: 16 }}>
+            {[["Son Başvuru", fmtTR(item.deadline), dl >= 0 && dl <= 3], ["Başlangıç", fmtTR(item.date), false], ...(item.end ? [["Bitiş", fmtTR(item.end), false]] : [])].map(([l, v, hot], i, arr) => (
+              <React.Fragment key={l}>
+                <div style={{ flex: 1, textAlign: "center" }}>
+                  <div style={{ fontSize: 10.5, color: T.mut, fontWeight: 600, marginBottom: 3 }}>{l}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, fontFamily: T.disp, color: hot ? T.red : T.ink }}>{v}</div>
+                </div>
+                {i < arr.length - 1 && <div style={{ width: 1, background: T.line }} />}
+              </React.Fragment>
+            ))}
+          </div>
+          {dl >= 0 && dl <= 7 && (
+            <div style={{ textAlign: "center", fontSize: 12.5, fontWeight: 700, color: dl <= 3 ? T.red : T.amber, marginBottom: 14, marginTop: -6 }}>
+              ⏳ {dl === 0 ? "Bugün son gün!" : `Son başvuruya ${dl} gün kaldı`}
+            </div>
+          )}
+
+          <div style={{ fontSize: 11.5, color: T.mut, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 8 }}>
+            Aranan yetkinlikler {item.pct != null && "— yeşiller profilinizle eşleşiyor"}
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
+            {item.tags.map((t) => {
+              const tl = trLower(t);
+              const hit = mine.some((m) => m === tl || tl.includes(m) || m.includes(tl));
+              return (
+                <span key={t} style={{ padding: "5px 12px", borderRadius: 16, fontSize: 12.5, fontWeight: 500, background: hit ? T.tealSoft : T.paper, color: hit ? T.teal : T.mut, border: `1px solid ${hit ? T.teal + "50" : T.line}` }}>
+                  {hit ? "✓ " : ""}{t}
+                </span>
+              );
+            })}
+          </div>
+
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={toggleSave} className="press" style={{ flex: 1, padding: "12px", borderRadius: 24, cursor: "pointer", fontSize: 14, fontWeight: 700, fontFamily: T.disp, border: `1px solid ${saved ? T.teal : T.line}`, background: saved ? T.tealSoft : "transparent", color: saved ? T.teal : T.ink }}>
+              {saved ? "✓ Takvimde" : "📌 Takvime ekle"}
+            </button>
+            <button className="press" style={{ flex: 1, padding: "12px", borderRadius: 24, cursor: dl < 0 ? "default" : "pointer", fontSize: 14, fontWeight: 700, fontFamily: T.disp, border: "none", background: dl < 0 ? "#E9E9E4" : art.g, color: dl < 0 ? "#9a9a92" : "#fff" }}
+              onClick={() => dl >= 0 && alert(`Gerçek uygulamada bu buton sizi ${src?.url} üzerindeki başvuru sayfasına götürür.`)}>
+              {dl < 0 ? "Başvurular Tamamlandı" : "Başvuruya git ↗"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════ LINK EKLEME MODALI ═══════════ */
+function AddModal({ onClose, onAdd }) {
+  const [url, setUrl] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [step, setStep] = useState(0);
+  const steps = ["Sayfa taranıyor…", "Etkinlikler ayrıştırılıyor…", "Akışa ekleniyor…"];
+
+  useEffect(() => {
+    if (!scanning) return;
+    const t = setInterval(() => setStep((s) => Math.min(s + 1, 2)), 480);
+    return () => clearInterval(t);
+  }, [scanning]);
+
+  const go = () => {
+    if (!url.trim() || scanning) return;
+    setScanning(true);
+    onAdd(url.trim(), onClose);
+  };
+
+  return (
+    <div onClick={() => !scanning && onClose()} style={{ position: "fixed", inset: 0, background: "rgba(23,26,33,.5)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, animation: "fadeIn .2s" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: T.card, borderRadius: 18, padding: 28, width: "100%", maxWidth: 440, animation: "popIn .28s cubic-bezier(.22,1,.36,1)" }}>
+        <h3 style={{ fontFamily: T.disp, fontSize: 20, margin: "0 0 6px" }}>Takip edilecek site ekle</h3>
+        <p style={{ color: T.mut, fontSize: 13, margin: "0 0 16px", lineHeight: 1.5 }}>
+          Sitedeki yeni etkinlik, yarışma ve stajlar otomatik taranıp akışınıza düşer; profilinize göre puanlanır.
+        </p>
+        {!scanning ? (
+          <>
+            <input value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => e.key === "Enter" && go()}
+              placeholder="ör. coderspace.io/etkinlikler" autoFocus
+              style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 10, border: `1px solid ${T.line}`, fontSize: 14, marginBottom: 8, outline: "none", transition: "border-color .2s, box-shadow .2s" }} />
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+              {["techcareer.net", "topluluk.dev", "univerlist.com"].map((s) => (
+                <button key={s} onClick={() => setUrl(s)} className="press" style={{ padding: "4px 11px", borderRadius: 14, fontSize: 11.5, border: `1px solid ${T.line}`, background: T.paper, cursor: "pointer", color: T.mut }}>{s}</button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button onClick={onClose} className="press" style={{ padding: "10px 18px", borderRadius: 10, border: `1px solid ${T.line}`, background: "transparent", cursor: "pointer", fontSize: 13.5, fontWeight: 500 }}>Vazgeç</button>
+              <button onClick={go} className="press" style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: T.blue, color: "#fff", cursor: "pointer", fontSize: 13.5, fontWeight: 600, fontFamily: T.disp }}>Takibe al</button>
+            </div>
+          </>
+        ) : (
+          <div style={{ textAlign: "center", padding: "16px 0 6px" }}>
+            <div style={{ width: 36, height: 36, border: `3px solid ${T.line}`, borderTopColor: T.blue, borderRadius: "50%", animation: "spin .8s linear infinite", margin: "0 auto 14px" }} />
+            <div style={{ fontSize: 14, fontWeight: 600, fontFamily: T.disp, animation: "fadeIn .3s" }} key={step}>{steps[step]}</div>
+            <div style={{ fontSize: 12, color: T.mut, marginTop: 4 }}>{url}</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════ TAKVİM ═══════════ */
+function CalendarPage({ items, sources, setDetail }) {
+  const [month, setMonth] = useState(6);
+  const [year, setYear] = useState(2026);
+  const [selDay, setSelDay] = useState(null);
+  const monthNames = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
+  const startDow = (new Date(year, month, 1).getDay() + 6) % 7;
+  const days = new Date(year, month + 1, 0).getDate();
+  const cells = [...Array(startDow).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
+
+  const nav = (d) => {
+    let m = month + d, y = year;
+    if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; }
+    setMonth(m); setYear(y); setSelDay(null);
+  };
+
+  const byDay = {};
+  items.forEach((it) => {
+    [["deadline", it.deadline], ["date", it.date]].forEach(([kind, iso]) => {
+      const d = new Date(iso + "T00:00:00");
+      if (d.getFullYear() === year && d.getMonth() === month) (byDay[d.getDate()] ||= []).push({ ...it, kind });
+    });
+  });
+  const isToday = (d) => year === 2026 && month === 6 && d === 4;
+  const upcoming = [...items].sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+  const navB = { width: 34, height: 34, borderRadius: 9, border: `1px solid ${T.line}`, background: "#fff", cursor: "pointer", fontSize: 17 };
+
+  return (
+    <div className="cal-grid-wrap" style={{ display: "grid", gridTemplateColumns: "1fr 330px", gap: 20, alignItems: "start" }}>
+      <div style={{ background: T.card, border: `1px solid ${T.line}`, borderRadius: 16, padding: 22 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <button onClick={() => nav(-1)} className="press" style={navB}>‹</button>
+          <h2 style={{ fontFamily: T.disp, fontSize: 20, margin: 0, letterSpacing: "-.3px" }}>{monthNames[month]} {year}</h2>
+          <button onClick={() => nav(1)} className="press" style={navB}>›</button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 5 }}>
+          {["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"].map((d) => (
+            <div key={d} style={{ fontSize: 11, color: T.mut, fontWeight: 700, textAlign: "center", padding: 4, letterSpacing: ".3px" }}>{d}</div>
+          ))}
+          {cells.map((d, i) => {
+            const has = d && byDay[d];
+            return (
+              <div key={i} onClick={() => has && setSelDay(selDay === d ? null : d)} style={{
+                minHeight: 64, borderRadius: 9, padding: 6, fontSize: 12, cursor: has ? "pointer" : "default",
+                background: selDay === d ? T.blueSoft : has ? "#F3F5FD" : d ? "#FAFAF8" : "transparent",
+                border: d ? `1.5px solid ${selDay === d ? T.blue : isToday(d) ? T.ink : has ? T.blue + "30" : T.line}` : "none",
+                transition: "all .15s",
+              }}>
+                {d && <div style={{ fontWeight: isToday(d) ? 800 : 600, marginBottom: 3, display: "flex", justifyContent: "space-between" }}>
+                  <span>{d}</span>{isToday(d) && <span style={{ fontSize: 8.5, color: T.blue, fontWeight: 700 }}>BUGÜN</span>}
+                </div>}
+                {has && byDay[d].slice(0, 2).map((e, j) => (
+                  <div key={j} title={e.title} style={{ fontSize: 9.5, padding: "2px 5px", borderRadius: 4, marginBottom: 2, background: e.kind === "deadline" ? T.redSoft : T.tealSoft, color: e.kind === "deadline" ? T.red : T.teal, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600 }}>
+                    {e.kind === "deadline" ? "⏳" : "📅"} {e.title}
+                  </div>
+                ))}
+                {has && byDay[d].length > 2 && <div style={{ fontSize: 9, color: T.mut }}>+{byDay[d].length - 2} daha</div>}
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", gap: 16, marginTop: 14, fontSize: 12, color: T.mut }}>
+          <span><span style={{ color: T.red }}>⏳</span> Son başvuru</span>
+          <span><span style={{ color: T.teal }}>📅</span> Etkinlik günü</span>
+        </div>
+        {selDay && byDay[selDay] && (
+          <div style={{ marginTop: 14, borderTop: `1px solid ${T.line}`, paddingTop: 14, animation: "fadeUp .25s ease" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.mut, marginBottom: 8 }}>{selDay} {monthNames[month]}</div>
+            {byDay[selDay].map((e, j) => (
+              <button key={j} onClick={() => setDetail(e.id)} className="press" style={{ display: "block", width: "100%", textAlign: "left", background: T.paper, border: `1px solid ${T.line}`, borderRadius: 10, padding: "10px 13px", marginBottom: 6, cursor: "pointer", fontSize: 13 }}>
+                <b>{e.kind === "deadline" ? "⏳ Son başvuru: " : "📅 "}</b>{e.title}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <aside style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <h3 style={{ fontFamily: T.disp, fontSize: 15, margin: "0 0 2px" }}>Kaydedilenler ({items.length})</h3>
+        {upcoming.map((it, i) => {
+          const src = sources.find((s) => s.id === it.src);
+          const dl = daysLeft(it.deadline);
+          return (
+            <button key={it.id} onClick={() => setDetail(it.id)} className="card-hover press" style={{
+              textAlign: "left", background: T.card, border: `1px solid ${T.line}`, borderRadius: 12, padding: "13px 15px",
+              cursor: "pointer", animation: `slideIn .3s ease ${i * 0.05}s both`,
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 5 }}>
+                <span style={{ fontSize: 11, color: src?.color, fontWeight: 600 }}>{src?.name}</span>
+                {it.pct != null && <span style={{ fontSize: 11, fontWeight: 700, color: pctColor(it.pct) }}>%{it.pct}</span>}
+              </div>
+              <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 5, fontFamily: T.disp }}>{it.title}</div>
+              <div style={{ fontSize: 11.5, color: dl >= 0 && dl <= 3 ? T.red : T.mut, fontWeight: dl >= 0 && dl <= 3 ? 700 : 400 }}>
+                {dl < 0 ? "Başvuru kapandı" : dl === 0 ? "⚠ Bugün son gün!" : `Son başvuruya ${dl} gün`}
+              </div>
+            </button>
+          );
+        })}
+        {items.length === 0 && (
+          <div style={{ background: T.card, border: `1.5px dashed ${T.line}`, borderRadius: 12, padding: 24, textAlign: "center", color: T.mut, fontSize: 13, lineHeight: 1.6 }}>
+            📌<br />Henüz kayıt yok.<br />Akıştan 📌 ile fırsat kaydedin — burada ve takvimde görünür.
+          </div>
+        )}
+      </aside>
+    </div>
+  );
+}
+
+/* ═══════════ PROFİL ═══════════ */
+function ProfilePage({ profile, setProfile, toast }) {
+  const [skillIn, setSkillIn] = useState("");
+  const [intIn, setIntIn] = useState("");
+  const [scanStage, setScanStage] = useState(null);
+  const [scanError, setScanError] = useState(null);
+  const [review, setReview] = useState(null);
+  const set = (k, v) => setProfile({ ...profile, [k]: v });
+
+  const fields = [profile.name, profile.title, profile.about, profile.edu];
+  const done = fields.filter((f) => f.trim()).length + (profile.skills.length ? 1 : 0) + (profile.interests.length ? 1 : 0);
+  const completeness = Math.round((done / 6) * 100);
+
+  const addChip = (k, val, setVal) => {
+    const v = val.trim();
+    if (!v) return;
+    if (profile[k].some((s) => trLower(s) === trLower(v))) { setVal(""); return; }
+    set(k, [...profile[k], v]); setVal("");
+  };
+
+  const onCV = async (f) => {
+    if (!f) return;
+    setScanError(null); setReview(null);
+    try {
+      const res = await scanCV(f, setScanStage);
+      setScanStage(null);
+      const newSkills = (res.skills || []).filter((s) => !profile.skills.some((x) => trLower(x) === trLower(s)));
+      const newInterests = (res.interests || []).filter((s) => !profile.interests.some((x) => trLower(x) === trLower(s)));
+      setReview({ ...res, skills: newSkills, interests: newInterests, fileName: f.name });
+    } catch (e) {
+      setScanStage(null);
+      setScanError(e.message || "CV taranamadı.");
+    }
+  };
+
+  const applyReview = () => {
+    setProfile({
+      ...profile,
+      cvName: review.fileName,
+      name: profile.name.trim() || review.name || profile.name,
+      title: profile.title.trim() || review.title || profile.title,
+      about: profile.about.trim() || review.about || profile.about,
+      edu: profile.edu.trim() || review.edu || profile.edu,
+      skills: [...profile.skills, ...review.skills],
+      interests: [...profile.interests, ...review.interests],
+    });
+    toast(`CV işlendi — ${review.skills.length} yetenek, ${review.interests.length} ilgi alanı eklendi`, "📄");
+    setReview(null);
+  };
+
+  const input = { width: "100%", boxSizing: "border-box", padding: "10px 13px", borderRadius: 10, border: `1px solid ${T.line}`, fontSize: 13.5, outline: "none", transition: "border-color .2s, box-shadow .2s", background: "#fff" };
+  const lab = { fontSize: 11.5, fontWeight: 700, color: T.mut, textTransform: "uppercase", letterSpacing: ".6px", display: "block", marginBottom: 6 };
+
+  const ChipRow = ({ k, color, txtColor }) => (
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+      {profile[k].map((s) => (
+        <span key={s} style={{ padding: "5px 8px 5px 12px", borderRadius: 16, fontSize: 12.5, fontWeight: 500, background: color, color: txtColor, display: "inline-flex", gap: 6, alignItems: "center", animation: "popIn .2s ease" }}>
+          {s}
+          <button onClick={() => set(k, profile[k].filter((x) => x !== s))} className="press" style={{ border: "none", background: "none", cursor: "pointer", fontSize: 13, padding: 0, lineHeight: 1, color: "inherit", opacity: .6 }}>×</button>
+        </span>
+      ))}
+      {profile[k].length === 0 && <span style={{ fontSize: 12, color: T.mut, padding: "5px 0" }}>Henüz eklenmedi</span>}
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth: 660, margin: "0 auto", display: "flex", flexDirection: "column", gap: 18 }}>
+      {/* CV yükleme */}
+      <div style={{ background: T.card, border: `1.5px dashed ${T.blue}55`, borderRadius: 16, padding: 22 }}>
+        {scanStage ? (
+          <div style={{ textAlign: "center", padding: "8px 0" }}>
+            <div style={{ width: 34, height: 34, border: `3px solid ${T.line}`, borderTopColor: T.blue, borderRadius: "50%", animation: "spin .8s linear infinite", margin: "0 auto 12px" }} />
+            <div style={{ fontFamily: T.disp, fontWeight: 600, fontSize: 14 }}>{scanStage}</div>
+            <div style={{ fontSize: 12, color: T.mut, marginTop: 4 }}>PDF metni çıkarılıp yapay zekâ ile analiz ediliyor</div>
+          </div>
+        ) : review ? (
+          <div style={{ animation: "fadeUp .3s ease" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <span style={{ fontSize: 18 }}>📄</span>
+              <div style={{ fontFamily: T.disp, fontWeight: 700, fontSize: 15 }}>CV analizi tamam — {review.fileName}</div>
+            </div>
+            <div style={{ fontSize: 12, color: review._method === "ai" ? T.teal : T.amber, fontWeight: 600, marginBottom: 12 }}>
+              {review._method === "ai" ? "✓ Yapay zekâ ile detaylı analiz" : "⚡ Yerel analiz (AI erişilemedi — sözlük tabanlı)"}
+            </div>
+            {review.name && <div style={{ fontSize: 13, marginBottom: 3 }}><b>Ad:</b> {review.name}</div>}
+            {review.title && <div style={{ fontSize: 13, marginBottom: 3 }}><b>Unvan:</b> {review.title}</div>}
+            {review.edu && <div style={{ fontSize: 13, marginBottom: 10 }}><b>Eğitim:</b> {review.edu}</div>}
+            <div style={{ ...lab, marginTop: 6 }}>Bulunan yetenekler ({review.skills.length})</div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 12 }}>
+              {review.skills.map((s) => <span key={s} style={{ padding: "4px 11px", borderRadius: 14, fontSize: 12, background: T.blueSoft, color: T.blue, fontWeight: 500 }}>{s}</span>)}
+              {review.skills.length === 0 && <span style={{ fontSize: 12, color: T.mut }}>Yeni yetenek bulunamadı</span>}
+            </div>
+            <div style={lab}>Çıkarılan ilgi alanları ({review.interests.length})</div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 16 }}>
+              {review.interests.map((s) => <span key={s} style={{ padding: "4px 11px", borderRadius: 14, fontSize: 12, background: T.tealSoft, color: T.teal, fontWeight: 500 }}>{s}</span>)}
+              {review.interests.length === 0 && <span style={{ fontSize: 12, color: T.mut }}>Yeni ilgi alanı bulunamadı</span>}
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setReview(null)} className="press" style={{ padding: "10px 18px", borderRadius: 10, border: `1px solid ${T.line}`, background: "transparent", cursor: "pointer", fontSize: 13, fontWeight: 500 }}>Vazgeç</button>
+              <button onClick={applyReview} className="press" style={{ flex: 1, padding: "10px 18px", borderRadius: 10, border: "none", background: T.teal, color: "#fff", cursor: "pointer", fontSize: 13.5, fontWeight: 700, fontFamily: T.disp }}>
+                ✓ Profile aktar — skorlar güncellensin
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontFamily: T.disp, fontWeight: 600, fontSize: 15, marginBottom: 4 }}>
+              {profile.cvName ? `📄 ${profile.cvName}` : "CV yükle, profil saniyeler içinde dolsun"}
+            </div>
+            <p style={{ fontSize: 12.5, color: T.mut, margin: "0 0 14px", lineHeight: 1.5 }}>
+              PDF / DOCX / TXT desteklenir. Metin çıkarılır, yapay zekâ yetenek ve ilgi alanlarını detaylıca ayrıştırır; siz onaylayınca profile eklenir. Ücretsizdir.
+            </p>
+            {scanError && <p style={{ fontSize: 12.5, color: T.red, margin: "0 0 12px", fontWeight: 600 }}>⚠ {scanError}</p>}
+            <label className="press" style={{ display: "inline-block", padding: "10px 22px", borderRadius: 10, background: T.blue, color: "#fff", fontSize: 13.5, fontWeight: 600, cursor: "pointer", fontFamily: T.disp }}>
+              {profile.cvName ? "Yeni CV yükle" : "CV seç ve tara"}
+              <input type="file" accept=".pdf,.doc,.docx,.txt" style={{ display: "none" }} onChange={(e) => { onCV(e.target.files?.[0]); e.target.value = ""; }} />
+            </label>
+          </div>
+        )}
+      </div>
+
+      <div style={{ background: T.card, border: `1px solid ${T.line}`, borderRadius: 14, padding: "16px 20px", display: "flex", alignItems: "center", gap: 16 }}>
+        <Ring pct={completeness} size={56} />
+        <div>
+          <div style={{ fontFamily: T.disp, fontWeight: 600, fontSize: 15 }}>Profil tamamlanma</div>
+          <div style={{ fontSize: 12.5, color: T.mut }}>
+            {completeness === 100 ? "Harika! Uyum skorlarınız en isabetli halinde." : "Profil doldukça akıştaki uyum yüzdeleri isabetli hale gelir."}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ background: T.card, border: `1px solid ${T.line}`, borderRadius: 16, padding: 24 }}>
+        <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 20 }}>
+          <div style={{ width: 64, height: 64, borderRadius: "50%", background: `linear-gradient(135deg, ${T.blue}, ${T.violet})`, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.disp, fontSize: 24, fontWeight: 700, flexShrink: 0 }}>
+            {(profile.name.trim() || "?").split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+          </div>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+            <input value={profile.name} onChange={(e) => set("name", e.target.value)} placeholder="Adınız Soyadınız"
+              style={{ ...input, fontFamily: T.disp, fontSize: 17, fontWeight: 600 }} />
+            <input value={profile.title} onChange={(e) => set("title", e.target.value)} placeholder="Unvan / bölüm" style={input} />
+          </div>
+        </div>
+
+        <label style={lab}>Hakkımda</label>
+        <textarea value={profile.about} onChange={(e) => set("about", e.target.value)} rows={3}
+          placeholder="Kendinizden ve hedeflerinizden bahsedin — buradaki anahtar kelimeler de uyum skoruna katılır."
+          style={{ ...input, resize: "vertical", marginBottom: 18, lineHeight: 1.5 }} />
+
+        <label style={lab}>Eğitim</label>
+        <input value={profile.edu} onChange={(e) => set("edu", e.target.value)} placeholder="Üniversite — Bölüm (yıllar)" style={{ ...input, marginBottom: 18 }} />
+
+        <label style={lab}>Yetenekler ({profile.skills.length})</label>
+        <input value={skillIn} onChange={(e) => setSkillIn(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && addChip("skills", skillIn, setSkillIn)}
+          placeholder="Yaz ve Enter'a bas — ör. React, RAG, prompt mühendisliği…" style={input} />
+        <ChipRow k="skills" color={T.blueSoft} txtColor={T.blue} />
+
+        <div style={{ height: 18 }} />
+        <label style={lab}>İlgi alanları ({profile.interests.length})</label>
+        <input value={intIn} onChange={(e) => setIntIn(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && addChip("interests", intIn, setIntIn)}
+          placeholder="ör. yapay zekâ, girişimcilik, hackathon…" style={input} />
+        <ChipRow k="interests" color={T.tealSoft} txtColor={T.teal} />
+      </div>
+
+      <p style={{ fontSize: 12.5, color: T.mut, textAlign: "center", lineHeight: 1.6 }}>
+        Tüm bilgileriniz cihazınıza kaydedilir ve uygulamayı tekrar açtığınızda korunur.<br />
+        Profildeki her değişiklik akıştaki uyum yüzdelerini anında yeniden hesaplar.
+      </p>
+    </div>
+  );
+}
