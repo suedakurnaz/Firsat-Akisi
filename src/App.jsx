@@ -80,14 +80,24 @@ export default function App() {
     const color = ['#3B5BDB', '#0CA678', '#E8930C', '#9C36B5', '#E03131', '#0E7490', '#7C3AED'][sources.length % 7];
     const src = { id: uid(), name: cap, url: clean, color };
     setTimeout(() => {
+      const now = new Date();
       const found = DISCOVER_POOL
-        .filter((p) => !items.some((i) => i.title === p.title))
-        .slice(0, 2)
+        .filter((p) =>
+          // Henüz akışta olmayan fırsatlar
+          !items.some((i) => i.title === p.title) &&
+          // Başvurusu hâlâ açık olanlar (deadline geçmemiş)
+          new Date(p.deadline + 'T23:59:00') >= now
+        )
         .map((p) => ({ ...p, id: uid(), src: src.id, mins: Math.floor(Math.random() * 20) + 2 }));
       setSources((s) => [...s, src]);
       setItems((it) => [...found, ...it]);
       done();
-      toast(found.length ? `${cap} takibe alındı — ${found.length} yeni fırsat bulundu` : `${cap} takibe alındı`, '🔗');
+      toast(
+        found.length
+          ? `${cap} takibe alındı — ${found.length} aktif fırsat eklendi`
+          : `${cap} takibe alındı`,
+        '🔗'
+      );
     }, 1400);
   };
 

@@ -19,11 +19,34 @@ export const SEED_ITEMS = [
 ];
 
 export const DISCOVER_POOL = [
-  { type: 'Hackathon', title: 'Sürdürülebilirlik Hackathonu', desc: 'İklim ve enerji verimliliği temalı 36 saatlik hackathon. Jüri önünde demo sunumu yapılır.', tags: ['yazılım', 'sürdürülebilirlik', 'takım çalışması', 'sunum', 'hackathon'], date: '2026-08-08', end: '2026-08-09', deadline: '2026-07-28', online: false, city: 'İstanbul' },
+  /* Hackathonlar */
+  { type: 'Hackathon', title: 'Sürdürülebilirlik Hackathonu', desc: 'İklim ve enerji verimliliği temalı 36 saatlik hackathon. Jüri önünde demo sunumu yapılır. Ödül havuzu 150.000₺.', tags: ['yazılım', 'sürdürülebilirlik', 'takım çalışması', 'sunum', 'hackathon'], date: '2026-08-08', end: '2026-08-09', deadline: '2026-07-28', online: false, city: 'İstanbul' },
+  { type: 'Hackathon', title: 'Sağlık Teknolojileri Hackathonu', desc: 'Dijital sağlık çözümleri geliştirme yarışması. Doktor-mühendis takımları tercih edilir, tıp öğrencilerine açık.', tags: ['sağlık', 'yazılım', 'yapay zekâ', 'api', 'takım çalışması'], date: '2026-08-22', end: '2026-08-23', deadline: '2026-08-10', online: true },
+  { type: 'Hackathon', title: 'Web3 & Blockchain Hackathonu', desc: 'DeFi, NFT ve akıllı kontrat geliştirme odaklı hackathon. Solidity ve Rust bilgisi avantaj sağlar.', tags: ['blockchain', 'web3', 'solidity', 'yazılım', 'javascript'], date: '2026-09-05', end: '2026-09-06', deadline: '2026-08-25', online: true },
+
+  /* Stajlar */
   { type: 'Staj', title: 'Backend Geliştirme Stajı', desc: 'Mikroservis mimarisi üzerinde çalışan ekipte Node.js ve SQL odaklı uzun dönem staj.', tags: ['node', 'sql', 'backend', 'javascript', 'yazılım', 'api'], date: '2026-09-01', end: '2026-12-18', deadline: '2026-08-05', online: false, city: 'Ankara' },
+  { type: 'Staj', title: 'Yapay Zekâ Araştırma Stajı', desc: 'NLP ve bilgisayarlı görü üzerine araştırma geliştirme stajı. Akademik yayın fırsatı mevcut.', tags: ['yapay zekâ', 'python', 'makine öğrenmesi', 'nlp', 'araştırma'], date: '2026-09-15', end: '2027-01-15', deadline: '2026-08-15', online: false, city: 'İstanbul' },
+  { type: 'Staj', title: 'Mobil Geliştirme Stajı (iOS/Android)', desc: 'React Native ile cross-platform mobil uygulama geliştirme stajı. 3 ay süreli, ücretli.', tags: ['mobil', 'react', 'javascript', 'ios', 'android', 'arayüz'], date: '2026-08-18', end: '2026-11-18', deadline: '2026-08-08', online: false, city: 'İzmir' },
+  { type: 'Staj', title: 'Veri Mühendisliği Stajı', desc: 'Büyük veri altyapısı ve ETL süreçleri üzerine odaklanan staj programı. Spark ve Kafka deneyimi beklenir.', tags: ['veri bilimi', 'python', 'sql', 'veri analizi', 'yazılım'], date: '2026-09-08', end: '2026-12-08', deadline: '2026-08-20', online: false, city: 'İstanbul' },
+
+  /* Yarışmalar */
   { type: 'Yarışma', title: 'Siber Güvenlik CTF Turnuvası', desc: 'Bireysel veya takım halinde katılabileceğiniz bayrak yakalama yarışması. Başlangıç seviyesine uygun kategoriler mevcut.', tags: ['siber güvenlik', 'yazılım', 'linux', 'python'], date: '2026-08-20', end: '2026-08-21', deadline: '2026-08-12', online: true },
+  { type: 'Yarışma', title: 'Ulusal Yapay Zekâ Yarışması', desc: 'Türkiye geneli üniversite öğrencilerine açık yapay zekâ problem çözme yarışması. Bireysel katılım.', tags: ['yapay zekâ', 'python', 'makine öğrenmesi', 'veri bilimi'], date: '2026-08-28', end: '2026-09-28', deadline: '2026-08-18', online: true },
+  { type: 'Yarışma', title: 'Algoritma ve Kodlama Olimpiyatı', desc: 'ICPC tarzı algoritma yarışması. C++, Java veya Python ile katılabilirsiniz. Üniversite takım yarışması.', tags: ['algoritma', 'yazılım', 'c++', 'java', 'python', 'hackathon'], date: '2026-09-12', end: '2026-09-12', deadline: '2026-09-01', online: false, city: 'Ankara' },
+
+  /* Etkinlikler */
   { type: 'Etkinlik', title: 'Ürün Yönetimi Buluşması', desc: 'Ürün yöneticileriyle vaka çalışması ve soru-cevap oturumu. Kontenjan sınırlı.', tags: ['ürün yönetimi', 'kariyer', 'iletişim', 'iş geliştirme', 'proje yönetimi'], date: '2026-07-23', end: null, deadline: '2026-07-21', online: true },
+  { type: 'Etkinlik', title: 'Teknoloji Kariyer Fuarı 2026', desc: '50\'den fazla teknoloji şirketiyle buluşma fırsatı. Staj ve tam zamanlı pozisyonlar için CV teslimi yapılabilir.', tags: ['kariyer', 'networking', 'iletişim', 'yazılım', 'tasarım'], date: '2026-08-14', end: '2026-08-15', deadline: '2026-08-07', online: false, city: 'İstanbul' },
+  { type: 'Etkinlik', title: 'Open Source Summit Türkiye', desc: 'Açık kaynak katkı kültürü, topluluk oluşturma ve GitHub projeleri üzerine bir günlük summit etkinliği.', tags: ['açık kaynak', 'yazılım', 'javascript', 'python', 'iletişim'], date: '2026-08-30', end: null, deadline: '2026-08-22', online: true },
+
+  /* Bootcamp & Programlar */
+  { type: 'Bootcamp', title: 'Full Stack Bootcamp — Next.js & Node', desc: 'Yoğun 12 haftalık full stack geliştirme programı. Proje tabanlı öğrenme, mentor desteği ve iş garantisi.', tags: ['react', 'javascript', 'node', 'sql', 'frontend', 'backend', 'yazılım'], date: '2026-09-01', end: '2026-11-21', deadline: '2026-08-22', online: true },
+  { type: 'Bootcamp', title: 'Siber Güvenlik Uzmanlaşma Programı', desc: 'Penetrasyon testi, ağ güvenliği ve etik hacking üzerine 8 haftalık yoğun eğitim programı.', tags: ['siber güvenlik', 'linux', 'python', 'yazılım', 'ağ'], date: '2026-08-25', end: '2026-10-17', deadline: '2026-08-15', online: true },
+  { type: 'Program', title: 'Google Developer Student Club Yaz Programı', desc: 'Google teknolojileri (Cloud, ML, Android) üzerine 6 haftalık mentorluk programı. Üniversite öğrencilerine ücretsiz.', tags: ['yazılım', 'yapay zekâ', 'cloud', 'android', 'javascript', 'python'], date: '2026-08-04', end: '2026-09-12', deadline: '2026-07-27', online: true },
+  { type: 'Program', title: 'Sosyal Girişimcilik Hızlandırma Programı', desc: 'Sosyal etki odaklı girişimler için 8 haftalık kuluçka ve mentorluk programı. Tohum fonlama fırsatı mevcut.', tags: ['girişimcilik', 'startup', 'sunum', 'iş geliştirme', 'pazarlama'], date: '2026-09-01', end: '2026-10-24', deadline: '2026-08-18', online: false, city: 'İstanbul' },
 ];
+
 
 export const DEFAULT_PROFILE = {
   name: '',
